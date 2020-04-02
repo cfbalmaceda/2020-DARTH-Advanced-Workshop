@@ -99,7 +99,13 @@ r_SD <-  0.1                           # rate of death when sick
 #Draw the values for all state transitions. We ll check later if they actuyally transitioned
 t_HS <- rexp(n_i,r_HS)
 t_HD <- rexp(n_i,r_HD)
+
 t_SD <- rexp(n_i,r_SD)
+#t_SH <- rexp(n_i,r_SH)
+
+t_H <- cbind(t_HS,t_HD)
+next.state <- apply(t_H,1, which.min)
+next.time  <- apply(t_H,1, min)
 
 # look at the first "jump" and assign the corresponding state
 t_1 <- ifelse(t_HD > t_HS, t_HD  , t_HS)

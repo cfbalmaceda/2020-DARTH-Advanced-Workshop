@@ -5,12 +5,16 @@
 
 
 
+# i 'd suggest you create an R project  so that you don't need to set wd
+# i ' also suggest for communicating purposes to add comments above the code
+#  i would also ask that all input is placed on top of the code and be assigned varialbe names that we can easily test changes. it is easy to lose track otherwhise
 
+#clean up the R memory 
+rm(list=ls())
+#setwd("/Users/cfbalmac/Desktop/Github/2020-DARTH-Advanced-Workshop/CB_project/data/");
 
-setwd("/Users/cfbalmac/Desktop/Github/2020-DARTH-Advanced-Workshop/CB_project/data/");
-
-synthetic_data <- read.csv('synthetic_sample_data.csv', header = T, sep = ",")
-ukpds_param <- read.csv('ukpds_param_eq.csv', header = T, sep = ";")
+synthetic_data <- read.csv('../data/synthetic_sample_data.csv', header = T, sep = ",")
+ukpds_param <- read.csv('../data/ukpds_param_eq.csv', header = T, sep = ";")
 nn <- nrow(synthetic_data)
 
 param2 <- as.matrix(ukpds_param[c(1:2,14),"rho"])     #Shape parameters
@@ -68,54 +72,58 @@ weight <- synthetic_data$weight
 
 
 #Create matrix for individual data
-indiv_data <- c(age,afro,age_dx,gender,indian,atfib,bmi,bmi_cat1,bmi_cat3,egfr,egfrL60,egfrM60,haem,
+indiv_data <- cbind(age,afro,age_dx,gender,indian,atfib,bmi,bmi_cat1,bmi_cat3,egfr,egfrL60,egfrM60,haem,
                 hba1c,hdl,hr,ldl,ldl35,mmalb,pvd,sbp,smoke,wbc,amp_event,amp_hist,blind_hist,chf_hist,
                 ihd_event,ihd_hist,mi_event,mi_hist,renal_event,renal_hist,stroke_event,stroke_hist,
                 ulcer_hist)
-indiv_data <- matrix(indiv_data,nn,36)
+
 
 ###Parameter for consequences
 colnames <- c("lamda","rho","dist")
+# why not addd the constant in teh 
 
-param_CHF <- matrix(rep(c(NA,param2[1,],dist_cq[1,]),nn,each=nn),nn,3)
-for(i in 1:nn){
-  param_CHF[i,1] <- cons[1,]+sum(indiv_data[i,] %*% ukpds_param_v2[1,])
-}
+lambda_CHF <- cons[1,] + indiv_data %*% ukpds_param_v2[1,]
+param_CHF  <- data.frame("lambda" = lambda_CHF, "rho"= param2[1,], "dist" = dist_cq[1,])
+
+
 param_IHD <- matrix(rep(c(NA,param2[2,],dist_cq[2,]),nn,each=nn),nn,3)
 for(i in 1:nn){
-  param_IHD[i,1] <- cons[1,]+sum(indiv_data[i,] %*% ukpds_param_v2[2,])
+  param_IHD[i,1] <- cons[2,]+sum(indiv_data[i,] %*% ukpds_param_v2[2,])
 }
 param_death <- matrix(rep(c(NA,param2[3,],dist_cq[3,]),nn,each=nn),nn,3)
 for(i in 1:nn){
-  param_death[i,1] <- cons[1,]+sum(indiv_data[i,] %*% ukpds_param_v2[3,])
+  param_death[i,1] <- cons[3,]+sum(indiv_data[i,] %*% ukpds_param_v2[3,])
 }
-colnames(param_CHF) <- c("lamda","rho","dist")
 colnames(param_IHD) <- c("lamda","rho","dist")
 colnames(param_death) <- c("lamda","rho","dist")
 
-param_CHF <- as.data.frame(param_CHF)
 
 ###Function to estimate time to event
 
-TTE <- function(data,lamda,rho,dist){
+TTE <- function(data){
   
   # Convert 'data' object into data.frame if necessary  
-  if(is.matrix(data)) {
-    data <- as.data.frame(data);
+  if(!is.data.frame(data)) {
+    data <- as.data.frame(data)
   }
-  
-  TTE_data <- data.frame(rep(NA,nn)) 
-    for(j in 1:nrow(TTE_data)){
-      if(dist[j,]=="weibull"){
-      TTE_data[j,] <- ((1/exp(exp(lamda[j,])))*ln(2))^(1/exp(rho[j,]))
-      } else if(dist[j,]=="gompertz") {
-      TTE_data[j,] <- (ln(((lamda[j,]/rho[j,])*ln(2))+1)/lamda[j,])
+  with(data,{
+  TTE_data <- vector("numeric",nn) 
+    for(j in 1:length(TTE_data)){
+     # browser()
+      if(dist[j]=="weibull"){
+      TTE_data[j] <- ((1 / exp(exp(lambda[j])))*log(2))^(1/exp(rho[j]))
+      } else if(dist[j]=="gompertz") {
+      TTE_data[j] <- (log(((lambda[j]/rho[j])*log(2))+1)/lambda[j])
     }
     }
   return(TTE_data=TTE_data)
+  
+  })
 }
 
-TTE_CHF <- TTE(param_CHF,lamda= param_CHF$lamda,param_CHF$rho,param_CHF$dist)
+TTE_CHF <- TTE(data =param_CHF)
+TTE_IHD <- TTE(data =param_IHD)
+TTE_death <- TTE(data =param_death)
 
 
 
